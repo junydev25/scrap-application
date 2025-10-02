@@ -1,0 +1,19 @@
+[project]
+name = "scraping-project"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "psutil>=7.1.0",
+    "pyyaml>=6.0.3",
+    "requests>=2.32.5",
+    "selenium>=4.35.0",
+]
+
+[dependency-groups]
+dev = [
+    "black>=25.1.0",
+    "isort>=6.0.1",
+    "ruff>=0.13.2",
+]
