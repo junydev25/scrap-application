@@ -1,0 +1,20 @@
+data_root_path: "logs/applications"
+file_extension: ".json"
+total:
+  filename: "total-applications"
+  save: true
+  send: true
+single:
+  path: "test-user1"
+  filename: "single-application"
+  save: true
+  send: true
+playwright:
+  url: "http://localhost:8000"
+  options:
+    headless: false
+    slow_mo: 500
+    chromium_sandbox: true
+external_url: "http://localhost:8000/approvals/external"
+username: "test-user1"
+password: "1234"
