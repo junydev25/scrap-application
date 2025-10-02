@@ -2,10 +2,10 @@ import argparse
 import getpass
 from pathlib import Path
 from test import test
+import psutil
+import os
 
-from selenium import webdriver
-from selenium.webdriver.chrome.options import Options
-from selenium.webdriver.chrome.service import Service
+from playwright.sync_api import sync_playwright
 
 from src import utils
 from src.scrap import Scraper
@@ -20,7 +20,6 @@ def main():
     parser.add_argument("--file-extension", type=str, default=".json")
     parser.add_argument("--total-filename", type=str, default=None, help=".json은 생략")
     parser.add_argument("--username", type=str, default=None)
-    parser.add_argument("--driver-path", type=str, default=None)
     parser.add_argument("--url", type=str, default=None)
     parser.add_argument("--external-url", type=str, default=None)
     parser.add_argument(
@@ -35,9 +34,6 @@ def main():
     parser.add_argument("--save-total-data", choices=["true", "false"], default=None)
     parser.add_argument("--send-total-data", choices=["true", "false"], default=None)
     parser.add_argument("--is-test", choices=["true", "false"], default=None)
-    parser.add_argument(
-        "--selenium-options", type=str, default="", help="쉼표로 구분된 Selenium 옵션"
-    )
 
     args = parser.parse_args()
 
@@ -63,14 +59,7 @@ def main():
         "filename", "total-applications"
     )
     username = args.username or config.get("username", None)
-    driver_path = convert_absolute_path(
-        base_path,
-        Path(
-            args.driver_path
-            or config.get("selenium", {}).get("driver", {}).get("path", None)
-        ),
-    )
-    url = args.url or config.get("selenium", {}).get("url", None)
+    url = args.url or config.get("playwright", {}).get("url", None)
     external_url = args.external_url or config.get("external_url", None)
     single_data_path = Path(
         args.single_data_path or config.get("single", {}).get("path", None) or username
@@ -95,46 +84,49 @@ def main():
     is_test = utils.search_not_none(
         utils.str2bool(args.is_test), config.get("is_test", False)
     )
-    selenium_options = (
-        args.selenium_options.split(",") if args.selenium_options else []
-    ) or config.get("selenium", {}).get("driver", {}).get("options", [])
+    playwright_options = config.get("playwright", {}).get("options", {})
     file_extension = args.file_extension or config.get("file_extension", ".json")
 
     if is_test:
-        selenium_options = ["--headless", "--no-sandbox"]
+        playwright_options = {"headless": True, "slow_mo": 0, "chromium_sandbox": False}
 
     scraper = Scraper(data_root_path, total_filename, file_extension)
     scraper.username = username
     scraper.password = password
 
-    options = Options()
-    for selenium_option in selenium_options:
-        options.add_argument(selenium_option.strip())
-    service = Service(driver_path)
+    with sync_playwright() as p:
+        browser_type = p.chromium
+        browser = browser_type.launch(
+            headless=playwright_options.get("headless", False),
+            slow_mo=playwright_options.get("slow_mo", 0),
+            chromium_sandbox=playwright_options.get("chromium_sandbox", False),
+        )
+        context = browser.new_context(base_url=url)
+        page = context.new_page()
+        page.goto(url)
 
-    service.start()
+        process = lambda: scraper.scrap(
+            page=page,
+            external_url=external_url,
+            save_total_data=save_total_data,
+            send_total_data=send_total_data,
+            save_single_data=save_single_data,
+            send_single_data=send_single_data,
+            single_data_path=single_data_path,
+            single_filename=single_filename,
+        )
 
-    driver = webdriver.Remote(service.service_url, options=options)
-
-    driver.get(url)
-
-    process = lambda: scraper.scrap(
-        driver=driver,
-        external_url=external_url,
-        save_total_data=save_total_data,
-        send_total_data=send_total_data,
-        save_single_data=save_single_data,
-        send_single_data=send_single_data,
-        single_data_path=single_data_path,
-        single_filename=single_filename,
-    )
-
-    if is_test:
-        test(process, "selenium", base_path, service.process.pid)
-    else:
-        process()
-
-    driver.quit()
+        if is_test:
+            python_pid = os.getpid()
+            child_pids = []
+            proc = psutil.Process(python_pid)
+            for child in proc.children(recursive=True):
+                if "headless_shell" in child.name():
+                    child_pids.append(child.pid)
+            test(process, "playwright", base_path, child_pids[-1])
+        else:
+            process()
+        browser.close()
 
 
 if __name__ == "__main__":

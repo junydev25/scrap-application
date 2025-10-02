@@ -1,11 +1,10 @@
 # Scrap Application
 
 ## Description
-해당 Scraping은 Selenium을 사용하므로 특정 브라우저의 드라이버를 설치해야 합니다. 해당 프로젝트에서는 크롬 드라이버를 설치하여 사용했으며 버전과 중요 환경은 다음과 같습니다.
+해당 Scraping은 Playwright를 사용 하므로 Selenium과 다르게 브라우저에 종속적이지도 않고 설치도 매우 쉽습니다.
 ```markdown
 OS: Ubuntu 24.04.1 LTS
-Chrome Driver: 140.0.7339.185
-Selenium: 4.35.0
+Playwright: 1.55.0
 Python*: 3.10.18
 ```
 
@@ -39,27 +38,24 @@ Scraping된 데이터들은 다음과 같이 저장되고 외부 API로 보냅�
 
 ---
 
-Selenium의 Chrome Driver 옵션 사용 방법은 다음과 같습니다.
-- CLI 사용시
-    ```shell
-    python main.py --selenium-options "--headless,--disable-gpu,--no-sandbox,--disable-dev-shm-usage"
-    ```
-- Config 파일 사용시
+Playwright의 옵션 사용 방법은 다음과 같습니다.
+> [!IMPORTANT]
+> Selenium과 다르게 Playwright는 옵션을 메서드의 인자로 전달 하기 때문에 Playwright 옵션 설정은 CLI가 아닌 Config 파일을 이용해야 합니다.
+- Config 파일 사용
     ```yaml
-    selenium:
-      driver:
-        options:
-          - "--disable-gpu"
-          - "--no-sandbox"
-          - "--disable-dev-shm-usage"
+    playwright:
+      options:
+        headless: false
+        slow_mo: 500
+        chromium_sandbox: true
     ```
 
 
 ## Run
-1. Chrome Driver 설치 및 확인
+1. 브라우저 설치
    ```shell
-   sudo apt install -y chromium-chromedriver 2:1snap1-0ubuntu2
-   which chromedriver # --driver-path에 사용
+    sudo playwright install-deps
+    playwright install chromium # firefox, webkit
    ```
 2. 의존성 설치
     ```shell
@@ -77,22 +73,31 @@ Selenium의 Chrome Driver 옵션 사용 방법은 다음과 같습니다.
 > CLI > YAML > 기본값 순으로 우선순위를 가집니다.
 > (CLI와 YAML에 같은 값이 있어도 CLI의 값을 우선합니다.)
 
-| CLI 옵션                                | Config Key (YAML)               | 기본값                    | 설명                                                |
-|---------------------------------------|---------------------------------|------------------------|---------------------------------------------------|
-| `-c`, `--config`                      | *(없음)*                          | `None`                 | 설정 파일(`.yml`) 경로                                  |
-| `--data-root-path`                    | `data_root_path`                | `"applications"`       | 데이터 저장 루트 경로                                      |
-| `--file-extension`                    | `file_extension`                | `".json"`              | 저장할 파일 확장자                                        |
-| `--total-filename`                    | `total.filename`                | `"total-applications"` | 전체 데이터를 저장할 파일명 (확장자 제외)                          |
-| `--username`                          | `username`                      | `None`                 | 로그인 사용자명                                          |
-| *(CLI 없음)*                            | `password`                      | `입력 요청`                | 로그인 비밀번호 (CLI에서는 입력받음)                            |
-| `--driver-path`                       | `selenium.driver.path`          | `None`                 | Selenium WebDriver 실행 파일 경로                       |
-| `--url`                               | `selenium.url`                  | `None`                 | 접속할 대상 URL                                        |
-| `--external-url`                      | `external_url`                  | `None`                 | 외부 API URL                                        |
-| `--single-data-path`                  | `single.path`                   | `username`             | 개별 데이터 저장 경로 (data-root-path 내부)                  |
-| `--single-filename`                   | `single.filename`               | `"single-application"` | 개별 데이터를 저장할 파일명 (확장자 제외)                          |
-| `--save-single-data` (`true`/`false`) | `single.save`                   | `False`                | 개별 데이터 저장 여부                                      |
-| `--send-single-data` (`true`/`false`) | `single.send`                   | `False`                 | 개별 데이터 전송 여부                                      |
-| `--save-total-data` (`true`/`false`)  | `total.save`                    | `False`                 | 전체 데이터 저장 여부                                      |
-| `--send-total-data` (`true`/`false`)  | `total.send`                    | `False`                 | 전체 데이터 전송 여부                                      |
-| `--is-test` (`true`/`false`)          | `is_test`                       | `False`                 | 테스트 여부                                            |
-| `--selenium-options` (쉼표 구분)          | `selenium.driver.options` (리스트) | `[]`                   | Selenium 브라우저 옵션 (예: `"--headless,--no-sandbox"`) |
+| CLI 옵션                                | Config Key (YAML)           | 기본값                    | 설명                               |
+|---------------------------------------|-----------------------------|------------------------|----------------------------------|
+| `-c`, `--config`                      | *(없음)*                      | `None`                 | 설정 파일(`.yml`) 경로                 |
+| `--data-root-path`                    | `data_root_path`            | `"applications"`       | 데이터 저장 루트 경로                     |
+| `--file-extension`                    | `file_extension`            | `".json"`              | 저장할 파일 확장자                       |
+| `--total-filename`                    | `total.filename`            | `"total-applications"` | 전체 데이터를 저장할 파일명 (확장자 제외)         |
+| `--username`                          | `username`                  | `None`                 | 로그인 사용자명                         |
+| *(CLI 없음)*                            | `password`                  | `입력 요청`                | 로그인 비밀번호 (CLI에서는 입력받음)           |
+| `--url`                               | `playwright.url`            | `None`                 | 접속할 대상 URL                       |
+| `--external-url`                      | `external_url`              | `None`                 | 외부 API URL                       |
+| `--single-data-path`                  | `single.path`               | `username`             | 개별 데이터 저장 경로 (data-root-path 내부) |
+| `--single-filename`                   | `single.filename`           | `"single-application"` | 개별 데이터를 저장할 파일명 (확장자 제외)         |
+| `--save-single-data` (`true`/`false`) | `single.save`               | `False`                | 개별 데이터 저장 여부                     |
+| `--send-single-data` (`true`/`false`) | `single.send`               | `False`                 | 개별 데이터 전송 여부                     |
+| `--save-total-data` (`true`/`false`)  | `total.save`                | `False`                 | 전체 데이터 저장 여부                     |
+| `--send-total-data` (`true`/`false`)  | `total.send`                | `False`                 | 전체 데이터 전송 여부                     |
+| `--is-test` (`true`/`false`)          | `is_test`                  | `False`                 | 테스트 여부                           |
+| *(CLI 없음)*                            | `playwright.options` (딕셔너리) | `[]`                   | Playwright 브라우저 옵션               |
+
+## Selenium VS Playwright
+
+1000개의 데이터를 Scraping 했을 때의 성능 비교입니다.
+
+|     | Selenium  | Playwright |
+| :-: |:---------:| :-: |
+| 작업시간 | 250.819초  | 68.441초 |
+| 메모리 | 390.87MB  | 12.61MB |
+| 네트워크 | 3055.77MB | 27.37MB |

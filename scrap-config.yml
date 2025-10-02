@@ -9,14 +9,12 @@ single:
   filename: "single-application"
   save: true
   send: true
-selenium:
+playwright:
   url: "http://localhost:8000"
-  driver:
-    path: "/usr/bin/chromedriver"
-    options:
-      - "--disable-gpu"
-      - "--no-sandbox"
-      - "--disable-dev-shm-usage"
+  options:
+    headless: false
+    slow_mo: 500
+    chromium_sandbox: true
 external_url: "http://localhost:8000/approvals/external"
 username: "test-user1"
 password: "1234"

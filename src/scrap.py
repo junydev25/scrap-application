@@ -1,7 +1,4 @@
 import re
-import time
-
-from selenium.webdriver.common.by import By
 
 from src import utils
 
@@ -44,15 +41,15 @@ class Scraper:
             return len(self.data)
         return 0
 
-    def _collection_data(self, driver):
+    def _collection_data(self, page):
         """
         현재 페이지에서 보이는 내용들을 dict 형태로 만듬
         """
         data = {}
-        fields = driver.find_elements(By.CSS_SELECTOR, ".detail-field")  # .은 클래스
+        fields = page.locator(".detail-field").all()
         for field in fields:
-            key = field.find_element(By.CSS_SELECTOR, ".detail-label").text
-            value = field.find_element(By.CSS_SELECTOR, ".detail-content").text
+            key = field.locator(".detail-label").text_content()
+            value = field.locator(".detail-content").text_content()
             new_key = key.replace(":", "").strip()
             data[self._convert_from_ko_to_en(new_key)] = value
 
@@ -79,27 +76,22 @@ class Scraper:
     def _data_sort(self):
         self.data.sort(key=lambda item: item["id"])
 
-    def _time_sleep(self, _time=0):
-        time.sleep(_time)
-
     def _make_total_data(self):
         self._data_sort()
         json_data = {"total": self.total, "data": self.data}
         return json_data
 
-    def _login(self, driver):
-        driver.find_element(
-            By.CSS_SELECTOR, "input[type='text'][name='username'][id='id_username']"
-        ).send_keys(self._username)
-        self._time_sleep()
-        driver.find_element(By.CSS_SELECTOR, "input[type='password']").send_keys(
-            self.__password
+    def _login(self, page):
+        page.locator("input[type='text'][name='username'][id='id_username']").fill(
+            self._username
         )
-        self._time_sleep()
-        driver.find_element(By.CSS_SELECTOR, "button[type='submit']").click()
+
+        page.locator("input[type='password']").fill(self.__password)
+
+        page.locator("button[type='submit']").click()
         print(f"✅ {self.username} 로그인 성공")
 
-    def _move_next_page(self, driver, current_page_urls):
+    def _move_next_page(self, page, current_page_urls):
         try:
             last_url = current_page_urls[-1]
             match = re.search(r"page=(\d+)", last_url)
@@ -107,13 +99,13 @@ class Scraper:
                 current_page = int(match.group(1))
                 next_page = current_page + 1
                 new_url = re.sub(r"page=\d+", f"page={next_page}", last_url)
-                driver.get(new_url)
+                page.goto(new_url)
         except Exception as e:
             raise e
 
     def scrap(
         self,
-        driver,
+        page,
         external_url,
         save_total_data,
         send_total_data,
@@ -122,15 +114,15 @@ class Scraper:
         single_data_path,
         single_filename,
     ):
-        self._time_sleep()  # 페이지 이동
+        # 페이지 이동
 
-        self._login(driver)  # Login
+        self._login(page)  # Login
 
-        self._time_sleep()  # 페이지 이동
+        # 페이지 이동
 
         ########## 현재 보이는 페이지에 있는 모든 요소들 따로 저장 해두고 처리(다시 HTML 탐색하지 않음) ##########
         while True:
-            approval_items = driver.find_elements(By.CSS_SELECTOR, "ul a")
+            approval_items = page.locator("ul a").all()
 
             if len(approval_items) == 0:
                 break
@@ -140,11 +132,11 @@ class Scraper:
                 current_page_urls += [approval_item.get_attribute("href")]
 
             for current_page_url in current_page_urls:
-                driver.get(current_page_url)
+                page.goto(current_page_url)
                 print("✅ 리스트 중 하나 클릭", end="\t")
 
                 ##########################################
-                single_data = self._collection_data(driver)
+                single_data = self._collection_data(page)
                 single_data["url"] = current_page_url  # 추가되는 내용 (수정 가능)
                 sorted_single_data = dict(
                     sorted(single_data.items(), key=lambda item: item[0])
@@ -164,10 +156,7 @@ class Scraper:
                 print()
                 ##########################################
 
-                self._time_sleep()
-
-            self._move_next_page(driver, current_page_urls)
-
+            self._move_next_page(page, current_page_urls)
         ##################################################################################################
         total_data = self._make_total_data()
         if save_total_data:
